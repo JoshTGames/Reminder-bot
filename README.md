@@ -1,2 +1,2 @@
-# GoalsBot
-Helps you achieve your goals
+# Reminder bot
+Helps to remind you of various tasks

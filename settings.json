@@ -1,0 +1,17 @@
+{
+    "botId": "MTA0NzYzNzA1MDc5NjU0NDA1MA.GJVD8w.QzVUqVQIUiGXY498zgL345kbjwQjt9m-lpzst4",
+    "guildId": "1063797385169469451",
+    "channelId": "1063841217324011610",
+    "roles":[
+        {
+            "name": "dayTimeRole",
+            "id": "1066362442961145866",
+            "startTime": "7"
+        },
+        {
+            "name": "nightTimeRole",
+            "id": "1066362623345578004",
+            "startTime": "21"
+        }
+    ]    
+}
