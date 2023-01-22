@@ -4,11 +4,9 @@ import os, sys
 from typing import Optional
 import discord
 from discord import app_commands
-import datetime
-import json
 import aiocron
 
-
+userData = {}
 class MyClient(discord.Client):
     def __init__(self, *, intents: discord.Intents):
         super().__init__(intents=intents)        
@@ -42,21 +40,31 @@ async def self(interaction: discord.Interaction, title: str, brief: str, aiocron
     )
     embed.set_author(name= interaction.user.display_name, icon_url= interaction.user.display_avatar, url= f"https://www.discordapp.com/users/{interaction.user.id}"); 
     embed.set_footer(text= f'Will trigger on this key: \'{aiocronkey}\'')
-    path = f'{os.getcwd()}/users/{str(interaction.user.id)}.data'
-    print(f'Added reminder to: {path}')
-    """
-    with open(path, 'w') as f:     
-        # Write into this user data                 
-        f.close()
-    """
-    aiocron.crontab(aiocronkey, func=reminder, start=True, args= (interaction, title, brief, aiocronkey)) 
+    
+    if(not aiocron.croniter.is_valid(aiocronkey)):
+        await interaction.response.send_message(f'Failed creating reminder... Please check aiocron key!', ephemeral=True)
+        return
+    
+    cron = aiocron.crontab(aiocronkey, func=reminder, start=True, args= (interaction, title, brief, aiocronkey))     
+    # Data storing
+    if not (interaction.user.id in userData):
+        userData[interaction.user.id] = {}
+    userData[interaction.user.id][aiocronkey] = cron
+    print(f'{interaction.user} (ID: {interaction.user.id}) has created a reminder in \'{interaction.guild.name}\'! ({title} | {brief} | {aiocronkey})')
     await interaction.response.send_message(embed= embed, ephemeral= True)
 
 @tree.command(name="unsubscribe", description="This will unsubscribe you from your reminder")
 @app_commands.rename(aiocronkey='aiocron_key')
 @app_commands.describe(aiocronkey='https://crontab.guru/ <- Visit this for keys')
 async def self(interaction: discord.Interaction, aiocronkey: str):
-    aiocron.crontab(aiocronkey, func=reminder, start=False) 
+    if not (aiocronkey in userData[interaction.user.id]): 
+        await interaction.response.send_message(f"There is no reminder under \'{aiocronkey}\'!", ephemeral=True)
+        return
+    # Data removal
+    userData[interaction.user.id][aiocronkey].stop()
+    userData[interaction.user.id].pop(aiocronkey)
+
+    print(f'{interaction.user} (ID: {interaction.user.id}) has unsubscribed a reminder in \'{interaction.guild.name}\'! ({aiocronkey})')
     await interaction.response.send_message("Successfully unsubscribed from reminder!", ephemeral=True)
 
 async def reminder(*args):
@@ -75,16 +83,18 @@ async def reminder(*args):
 
     await interaction.user.send(embed=embed)
 
-
+"""
 @tree.command(name="restart", description="Restarts the bot")
 async def self(interaction: discord.Interaction):
     await interaction.response.send_message(f'Restarting the bot...', ephemeral= True)
-    os.execv(sys.executable, ['python'] + sys.argv) 
+    os.execl(sys.executable, 'python', 'main.py')
+"""
 
 @tree.command(name="shutdown", description="Shuts the bot down")
-async def self(interaction: discord.Interaction):
-    await interaction.response.send_message(f'Shutting down...', ephemeral= True)
-    sys.exit()
+async def self(interaction: discord.Interaction):    
+    await interaction.response.send_message(f'Shutting down...', ephemeral= True)    
+    sys.exit(0)
+
 
 
 
