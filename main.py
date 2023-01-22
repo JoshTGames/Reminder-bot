@@ -1,68 +1,93 @@
 # My modules
-import json_manager, myutils, os
-botSettings = json_manager.ReadFile(os.getcwd() + "\settings.json")
-
+import os, sys
 
 from typing import Optional
 import discord
 from discord import app_commands
-from discord.ext import tasks
-import schedule, asyncio
 import datetime
+import json
+import aiocron
 
-
-MY_GUILD = discord.Object(id=botSettings["guildId"])  # TEMPORARY, WOULD LIKE TO GET ALL GUILDS THIS BOT IS ATTACHED TO
-MAIN_GUILD = ""
 
 class MyClient(discord.Client):
     def __init__(self, *, intents: discord.Intents):
         super().__init__(intents=intents)        
-        self.tree = app_commands.CommandTree(self)
+        self.synced = False
 
-    async def setup_hook(self):
-        await client.loop.create_task(schedule_loop())
-        # This copies the global commands over to the guild.
-        self.tree.copy_global_to(guild=MY_GUILD)
-        await self.tree.sync(guild=MY_GUILD)
+    async def on_ready(self):
+        if(not self.synced):
+            await tree.sync()
+            self.synced = True
+            print(f'Logged in as {client.user} (ID: {client.user.id}) \n------')
+            await client.change_presence(activity= discord.Game("Reminding u to do things so u dont have to!"));
 
-
-intents = discord.Intents.all()
-client = MyClient(intents=intents)
-
-@client.event
-async def on_ready():
-    global MAIN_GUILD
-    print(f'Logged in as {client.user} (ID: {client.user.id})')
-    print('------')    
-
-    MAIN_GUILD = client.get_guild(int(botSettings["guildId"]))       
-    reminder.start()
-    schedule.every(5).seconds.do(test)
-
-@client.tree.command()
-async def subscribe(interaction: discord.Interaction, role: discord.Role):
-    """Subscribe to a role"""
-    await interaction.response.send_message(f'Hi, {interaction.user.mention}', ephemeral=True)
-
-
-@tasks.loop(minutes=1) # At minute 0 past every hour, call this function
-async def reminder():    
-    print("Reminding users to drink water...")
-    time = datetime.datetime.now()
-    roleId = (time.hour > int(botSettings["roles"][1]["startTime"]) and time.hour < int(botSettings["roles"][0]["startTime"])) and botSettings["roles"][1]["id"] or botSettings["roles"][0]["id"] # Picks the role to mention based on time of day
-    role = MAIN_GUILD.get_role(int(roleId))
-    
-    await MAIN_GUILD.get_channel(int(botSettings["channelId"])).send(f'{role.mention}\n Don\'t forget to drink water! **Stay hydrated** 💦')
+            
 
 
 
-async def test():
-    print("test")
+client = MyClient(intents=discord.Intents.default())
+tree = app_commands.CommandTree(client)
 
 
-async def schedule_loop():
-    while True:
-        schedule.run_pending()
-        await asyncio.sleep(1)
 
-client.run(botSettings["botId"])
+
+@tree.command(name="subscribe", description="I will DM you your reminder at a given time")
+@app_commands.rename(title='title', brief='brief', aiocronkey='aiocron_key')
+@app_commands.describe(title='What is the title of this reminder?', brief='Tell me more about this reminder...', aiocronkey='https://crontab.guru/ <- Visit this for keys')
+async def self(interaction: discord.Interaction, title: str, brief: str, aiocronkey: str):
+    embed = discord.Embed(
+        title=f"{title}", 
+        description= f"{brief}", 
+        color= discord.Color.blue()
+    )
+    embed.set_author(name= interaction.user.display_name, icon_url= interaction.user.display_avatar, url= f"https://www.discordapp.com/users/{interaction.user.id}"); 
+    embed.set_footer(text= f'Will trigger on this key: \'{aiocronkey}\'')
+    path = f'{os.getcwd()}/users/{str(interaction.user.id)}.data'
+    print(f'Added reminder to: {path}')
+    """
+    with open(path, 'w') as f:     
+        # Write into this user data                 
+        f.close()
+    """
+    aiocron.crontab(aiocronkey, func=reminder, start=True, args= (interaction, title, brief, aiocronkey)) 
+    await interaction.response.send_message(embed= embed, ephemeral= True)
+
+@tree.command(name="unsubscribe", description="This will unsubscribe you from your reminder")
+@app_commands.rename(aiocronkey='aiocron_key')
+@app_commands.describe(aiocronkey='https://crontab.guru/ <- Visit this for keys')
+async def self(interaction: discord.Interaction, aiocronkey: str):
+    aiocron.crontab(aiocronkey, func=reminder, start=False) 
+    await interaction.response.send_message("Successfully unsubscribed from reminder!", ephemeral=True)
+
+async def reminder(*args):
+    interaction = args[0]
+    title = args[1]
+    brief = args[2]
+    aiocronkey = args[3]
+
+    embed = discord.Embed(
+        title=f"{title}", 
+        description= f"{brief}", 
+        color= discord.Color.blue()
+    )
+    embed.set_author(name= interaction.user.display_name, icon_url= interaction.user.display_avatar, url= f"https://www.discordapp.com/users/{interaction.user.id}"); 
+    embed.set_footer(text= f'To disable this, please visit \'{interaction.guild.name}\'\n Then type \'/unsubscribe {aiocronkey}\'', icon_url= interaction.guild.icon)
+
+    await interaction.user.send(embed=embed)
+
+
+@tree.command(name="restart", description="Restarts the bot")
+async def self(interaction: discord.Interaction):
+    await interaction.response.send_message(f'Restarting the bot...', ephemeral= True)
+    os.execv(sys.executable, ['python'] + sys.argv) 
+
+@tree.command(name="shutdown", description="Shuts the bot down")
+async def self(interaction: discord.Interaction):
+    await interaction.response.send_message(f'Shutting down...', ephemeral= True)
+    sys.exit()
+
+
+
+token = open('token.txt', 'r')
+client.run(token.read())
+token.close()
