@@ -1,7 +1,7 @@
 # My modules
-import os, sys, random
 import json_manager
 
+import os, sys, random
 from typing import Optional
 import discord
 from discord import app_commands
