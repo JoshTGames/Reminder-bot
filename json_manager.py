@@ -6,8 +6,8 @@ def ReadFile(filePath):
         f.close()
         return data
 
-def SaveFile(filePath, data):
-    dataDump = json.dumps(data, indent=4)
-    f = open(filePath, "w")
-    f.write(data)
-    f.close()
+def WriteFile(filePath, data):
+    with open(filePath, 'w') as f: # File object    
+        newData = json.dumps(data, indent=4)
+        f.write(newData)
+        f.close()
