@@ -86,6 +86,7 @@ async def self(interaction: discord.Interaction, title: str, brief: str, aicronk
         data = json_manager.ReadFile(thisUserData) # attempt to load existing data
     except:
         print(f'{interaction.user} save file not found... Creating one!')
+        embed.set_footer(text= "This bot saves your reminders (UNENCRYPTED!)\n If this is of concern to you, please unsubscribe the reminder with \n\'/unsubscribe {aicronkey}\' and dont use this bot!")
     
     data[aicronkey] = { # Add a key to data...    
         "guildId" : interaction.guild.id,   
@@ -124,7 +125,6 @@ async def self(interaction: discord.Interaction, aicronkey: str):
     #IF DATA LENGTH IS NONE, delete file!
     if(len(data) <= 0):
         os.remove(thisUserData)
-        return
     else:    
         json_manager.WriteFile(thisUserData, data)  
 
